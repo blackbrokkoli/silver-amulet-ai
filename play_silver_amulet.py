@@ -118,8 +118,7 @@ class Player:
         self.discard = []
         self.score = 0
         self.amulet = None
-        # TODO: set back to one
-        self.number_of_draws = 4
+        self.number_of_draws = 1
 
     def __str__(self):
         return self.name
@@ -230,9 +229,9 @@ class SilverAmulet:
         card.owner = player
 
     def exchange_card_with_hand_cards(self, player, received_card):
-        state = self.get_state_string(player)
-        message = f"{state}\{player}, you are about to receive: [ {received_card} ]\nWhat do you want to exchange it with it?"
+        message = f"{self.get_state_string(player)}\{player}, you are about to receive: [ {received_card} ]\nWhat do you want to exchange it with it?"
         choices = []
+        print("choices: ", choices)
         for card in player.hand:
             choices.append(f"{card.show_card_to_player(player)}")
         cards_to_exchange = easygui.multchoicebox(
@@ -277,17 +276,17 @@ class SilverAmulet:
         if len(player.hand) <= 4:
             choices.append("Call a vote")
 
-        state = self.get_state_string(player)
         type_of_move = easygui.buttonbox(
-            f"\n\n{player.name}, what do you want to do? \n{state}", choices=choices)
+            f"\n\n{player.name}, what do you want to do? \n{self.get_state_string(player)}", choices=choices)
         print(f"{player.name} chose {type_of_move}")
 
         if type_of_move == "Take a card from the deck":
             temporary_cards = []
             for i in range(player.number_of_draws):
-                message = f"{state}\n{player}, from where do you want to draw a card?"
+                message = f"{self.get_state_string(player)}\n{player}, from where do you want to draw a card?"
                 # options are the draw pile (facedown), and every card from the open draw pile
                 choices = [f"{self.draw_pile[0].id}: [ Draw pile ▯ ]"]
+                print("choices: ", choices)
                 for card in self.open_draw_pile:
                     choices.append(card.show_card_with_id())
                 print('choices: ', choices)
@@ -312,11 +311,12 @@ class SilverAmulet:
                     self.open_draw_pile.remove(card_tuple[0])
 
             # ask the player to choose one of the cards
-            message = f"{state}\n{player}, which card do you want to take?"
+            message = f"{self.get_state_string(player)}\n{player}, which card do you want to take?"
             choices = []
             for card_tuple in temporary_cards:
                 card = card_tuple[0]
                 choices.append(card.show_card_with_id())
+            print("choices: ", choices)
             choice = easygui.buttonbox(message, choices=choices)
             # find card object by its id
             card_id = choice.split(":")[0]
@@ -337,15 +337,21 @@ class SilverAmulet:
                     self.open_draw_pile.insert(0, card)
                 
             drawn_card = card_object
-            state = self.get_state_string(player)
-            message = f"{state}\n{player}, you drew: [ {drawn_card} ]\nWhat do you want to do with it?"
+            message = f"{self.get_state_string(player)}\n{player}, you drew: [ {drawn_card} ]\nWhat do you want to do with it?\n\nAbility: {drawn_card.ability}"
             choices = ["Exchange with hand cards", "Discard it"]
+            # if the type_ability of the card is "drawn", add "Use it and discard"
+            if drawn_card.type_ability == "drawn":
+                choices.append("Use it and discard")
+            print("choices: ", choices)
             action = easygui.buttonbox(message, choices=choices)
 
             if action == "Exchange with hand cards":
                 print(f"Player {player.name} chose to exchange {drawn_card} with hand cards.")
                 self.exchange_card_with_hand_cards(player, drawn_card)
-
+            elif action == "Use it and discard":
+                print(f"Player {player.name} chose to use {drawn_card} and discard it.")
+                self.execute_ability(drawn_card, player)
+                self.discard_pile.append(drawn_card)
             else:
                 print(f"Player {player.name} chose to discard {drawn_card}.")
                 self.discard_pile.append(drawn_card)
@@ -370,6 +376,7 @@ class SilverAmulet:
         # create easygui to choose which of the two cards of the five hand cards to turn faceup
         for _ in range(n):
             choices = [str(x+1) for x in [*range(len(player.hand))]]
+            print("choices: ", choices)
             peek_card = easygui.buttonbox(
                 f"\n\n{player.name}, which card do you want to peek at?", choices = choices)
             player.hand[int(peek_card) - 1].is_known_to_owner = True
@@ -395,11 +402,11 @@ class SilverAmulet:
     def turn_card_faceup(self, card, player):
         card.is_faceup = True
         if card.type_ability == "faceup":
-            self.execute_ability(self, card, player)
+            self.execute_ability(card, player)
 
     def card_not_faceup(self, card, player):
         if card.type_ability == "faceup":
-            self.undo_faceup_ability(self, card, player)
+            self.undo_faceup_ability(card, player)
         card.is_faceup = False
 
     def execute_ability(self, card, player):
@@ -420,6 +427,7 @@ class SilverAmulet:
             case 3:
                 # When faceup: protect this and 1 other card from opponents
                 choices = [str(x+1) for x in [*range(len(player.hand))]]
+                print("choices: ", choices)
                 protect_card = easygui.buttonbox(
                     f"\n\n{player.name}, which card do you want to protect?", choices = choices)
                 player.hand[int(protect_card) - 1].is_protected = True
@@ -429,16 +437,18 @@ class SilverAmulet:
             case 5:
                 # Turn 1 of your cards faceup
                 choices = [str(x+1) for x in [*range(len(player.hand))]]
+                print("choices: ", choices)
                 card_to_flip = easygui.buttonbox(
                     f"\n\n{player.name}, which of your cards do you want to turn?", choices=choices)
                 print(f"{player.name} chose {card_to_flip}")
-                self.turn_card_faceup(player.hand[int(card_to_flip)])
+                self.turn_card_faceup(player.hand[int(card_to_flip)], player)
             case 6:
                 # Turn any 1 card faceup
                 choices = [player.name for player in self.players]
+                print("choices: ", choices)
                 chosen_player = easygui.buttonbox(
                     f"\n\n{player.name}, whose card do you want to turn?", choices=choices)
-                print(f"{player.name} chose {chosen_player.name}")
+                print(f"{player.name} chose {chosen_player}")
                 
                 # find player object by name
                 chosen_player_object = None 
@@ -448,13 +458,14 @@ class SilverAmulet:
                         break
 
                 choices = [str(x+1) for x in [*range(len(chosen_player_object.hand))]]
+                print("choices: ", choices)
                 card_to_flip = easygui.buttonbox(
                     f"\n\n{player.name}, which of their cards do you want to turn?", choices=choices)
                 print(f"{player.name} chose {card_to_flip}")
-                self.turn_card_faceup(chosen_player_object.hand[int(card_to_flip)])
+                self.turn_card_faceup(chosen_player_object.hand[int(card_to_flip)], chosen_player_object)
             case 7:
                 # View up to 2 of your cards
-                self.peek_at_hand_cards(self, player, 2)
+                self.peek_at_hand_cards(player, 2)
             case 8:
                 # View 1 card of an opponent
                 other_players = []
@@ -473,6 +484,12 @@ class SilverAmulet:
                     if game_player.name == chosen_player:
                         chosen_player_object = game_player
                         break
+
+                choices = [str(x+1) for x in [*range(len(chosen_player_object.hand))]]
+                card_to_flip = easygui.buttonbox(
+                    f"\n\n{player.name}, which of their cards do you want to turn?", choices=choices)
+                print(f"{player.name} chose {card_to_flip}")
+                self.turn_card_faceup(chosen_player_object.hand[int(card_to_flip)])
             case 9:
                 # View any 1 card
                 choices = [str(x+1) for x in [*range(len(self.players))]]
@@ -497,14 +514,81 @@ class SilverAmulet:
                 self.discard_pile.remove(chosen_card_object)
             case 11:
                 # View the top card from the deck and exchange it into any village
+                drawn_card = self.draw_pile[0]
+                self.draw_pile.remove(drawn_card)
+                message = f"{self.get_state_string(player)}\n{player}, you drew: [ {drawn_card} ]\nWhose card do you want to exchange with it?"
+
+                other_players = []
+                for game_player in self.players:
+                    if game_player != player:
+                        other_players.append(game_player)
+                        
+                choices = [player.name for player in other_players]
+                print("choices: ", choices)
+                chosen_player = easygui.buttonbox(message, choices=choices)
+                print(f"{player.name} chose {chosen_player.name}")
+
+                choices = [str(x+1) for x in [*range(len(player.hand))]]
+                card_to_flip = easygui.buttonbox(
+                    f"\n\n{player.name}, which of your cards do you want to turn?", choices=choices)
+                print(f"{player.name} chose {card_to_flip}")
+                self.turn_card_faceup(player.hand[int(card_to_flip)], player)
+
+                # find player object by name
+                chosen_player_object = None 
+                for game_player in self.players:
+                    if game_player.name == chosen_player:
+                        chosen_player_object = game_player
+                        break
+
+                choices = [str(x+1) for x in [*range(len(chosen_player_object.hand))]]
+                print("choices: ", choices)
+                card_to_exchange = easygui.buttonbox(
+                    f"\n\n{player.name}, which of their cards do you want to exchange?", choices=choices)
+                print(f"{player.name} chose {card_to_exchange}")
                 
-                message = f"{state}\n{player}, you drew: [ {drawn_card} ]\nWhat do you want to do with it?"
-                choices = ["Ok."]
-                action = easygui.buttonbox(message, choices=choices)
-                pass
+                self.discard_pile.append(chosen_player_object.hand[card_to_exchange-1])
+                chosen_player_object.hand[card_to_exchange-1] = drawn_card
+
             case 12:
                 # Steal 1 opponent's card and give them 1 of your cards. View your new card.
-                pass
+                choices = [str(x+1) for x in [*range(len(player.hand))]]
+                print("choices: ", choices)
+                your_card_to_exchange = easygui.buttonbox(
+                    f"\n\n{player.name}, which of your cards do you want to exchange?", choices=choices)
+                print(f"{player.name} chose {your_card_to_exchange}")
+
+                other_players = []
+                for game_player in self.players:
+                    if game_player != player:
+                        other_players.append(game_player)
+              
+                choices = [player.name for player in other_players]
+                print("choices: ", choices)
+                chosen_player = easygui.buttonbox(
+                    f"\n\n{player.name}, whose card do you want to steal?", choices=choices)
+                print(f"{player.name} chose {chosen_player.name}")
+
+                # find player object by name
+                chosen_player_object = None 
+                for game_player in self.players:
+                    if game_player.name == chosen_player:
+                        chosen_player_object = game_player
+                        break
+
+                choices = [str(x+1) for x in [*range(len(chosen_player_object.hand))]]
+                print("choices: ", choices)
+                card_to_steal = easygui.buttonbox(
+                    f"\n\n{player.name}, which of their cards do you want to steal?", choices=choices)
+                print(f"{player.name} chose {card_to_steal}")
+
+                tmp_chosen_players_card = chosen_player_object.hand[card_to_steal-1]
+                chosen_player_object.hand[card_to_steal-1] = player.hand[your_card_to_exchange-1]
+                player.hand[your_card_to_exchange-1] = tmp_chosen_players_card
+
+                player.peek_at_hand_cards(self, player, 1)
+
+                
             case 13:
                 # When discarding: this card matches 1 other card (already implemented)
                 pass
