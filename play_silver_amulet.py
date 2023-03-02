@@ -15,13 +15,14 @@ class Ability:
 class Card:
     instances = []
 
-    def __init__(self, name, value, ability):
+    def __init__(self, value):
         self.id = Card.generate_unique_id()
         self.name = name
         self.value = value
         self.ability = ability
         self.ability_used = False
         self.is_faceup = False
+        self.is_known_to_owner = False
 
         self.__class__.instances.append(self)
 
@@ -43,13 +44,53 @@ class Card:
                 id += random.choice("abcdefghijklmnopqrstuvwxyz")
             if id not in used_ids:
                 return id
-            
-    def assign_ability_to_card(self):
-        print("FU")
+
+    def initialize_card(self):
         match self.value:
             case 0:
-                self.ability = ""
-        
+                self.name = "0 Villager"
+                self.ability = "When faceup: If any other 0 is faceup in any village, the round ends instantly."
+            case 1:
+                self.name = "1 Squire"
+                self.ability = "When faceup: display 1 card faceup from the deck."
+            case 2:
+                self.name = "2 Empath"
+                self.ability = "When faceup: view 1 of your facedown cards on your turn."
+            case 3:
+                self.name = "3 Bodyguard"
+                self.ability = "When faceup: protect this and 1 other card from opponents."
+            case 4:
+                self.name = "4 Rascal"
+                self.ability = "When faceup: draw 1 extra card from the deck."
+            case 5:
+                self.name = "5 Exposer"
+                self.ability = "Turn 1 of your cards faceup."
+            case 6:
+                self.name = "6 Revealer"
+                self.ability = "Turn any 1 card faceup."
+            case 7:
+                self.name = "7 Beholder"
+                self.ability = "View up to 2 of your cards."
+            case 8:
+                self.name = "8 Apprentice Seer"
+                self.ability = "View 1 card of an opponent."
+            case 9:
+                self.name = "9 Seer"
+                self.ability = "View any1 card."
+            case 10:
+                self.name = "10 Master"
+                self.ability = "Take any 1 card from the discard pile."
+            case 11:
+                self.name = "11 Witch"
+                self.ability = "View the top card from the deck nd exchange it into any village."
+            case 12:
+                self.name = "12 Robber"
+                self.ability = "Steal 1 opponent's card and give them 1 of your cards. View your new card."
+            case 13:
+                self.name = "13 Doppelgänger"
+                self.ability = "When discarding: this card matches 1 other card."
+            case _:
+                print("Card has an unexpected value")
 
 
 class Player:
@@ -106,24 +147,28 @@ class SilverAmulet:
         self.setup()
         self.play()
 
-    def print_state(self):
+    def get_state_string(self, current_player=None):
         # print the game state
-        print(f"Draw pile: {len(self.draw_pile)} cards")
-        print(f"Discard pile: {len(self.discard_pile)} cards")
-        # show card on top of discard pile
-        if len(self.discard_pile) > 0:
-            print(f"Top card: {self.discard_pile[-1]}")
+        state = f"Draw pile ({len(self.draw_pile)} cards): ▯" + "\n"
+        state += f"Discard pile ({len(self.discard_pile)} cards)" + "\n"
+        # print each card in the discard pile
+        for card in self.discard_pile:
+            state += f" {card} "
 
-        # show each player's hand
-        print()
         for player in self.players:
-            print(f"{player.name}'s hand:")
+            state += f"\n\n{player.name}'s hand: \n"
+
             for card in player.hand:
-                print(f" - {card}")
-            print(f"Score: {player.score}")
+                # only print card if faceup, otherwise print 'X'
+                if card.is_faceup or (player == current_player and card.is_known_to_owner):
+                    state += f" {card} "
+                else:
+                    state += " ▯ "
+            state += f"\nScore: {player.score}"
             if player.amulet is not None:
-                print(f"Amulet: {player.amulet}")
-            print()
+                state += f"\nAmulet: {player.amulet}"
+
+        return state + "\n" + "\n"
 
     def generate_deck(self):
         # generate 2 cards each with value 0 and 13, and 4 cards each for values 1-12
@@ -144,7 +189,8 @@ class SilverAmulet:
         for i in range(5):
             for player in self.players:
                 self.give_card(player)
-        self.print_state()
+
+        print(f"The following players are playing: {self.players}")
 
     def give_card(self, player):
         # take first card from draw pile and give it to player
@@ -170,19 +216,32 @@ class SilverAmulet:
         # ask the player whose turn it is to choose:
         # Take a card from the deck, take a card from the discard pile, or call a vote
         # the third option is only available if the player has 4 cards or less on his hand
-        choices = ["Take a card from the deck", "Take a card from the discard pile"]
+        choices = ["Take a card from the deck",
+                   "Take a card from the discard pile"]
         if len(player.hand) <= 4:
             choices.append("Call a vote")
-        type_of_move = easygui.buttonbox(f"{player.name}, what do you want to do?", choices=choices)
+
+        state = self.get_state_string(player)
+        type_of_move = easygui.buttonbox(
+            f"\n\n{player.name}, what do you want to do? \n{state}", choices=choices)
         print(f"{player.name} chose {type_of_move}")
 
     def play_round(self):
         for player in self.players:
             self.play_turn(player)
-        
-
 
     def play(self):
+        # allow each player in turn to peek at two cards on his hand
+        for player in self.players:
+            # create easygui to choose which of the two cards of the five hand cards to turn faceup
+            peek_card = easygui.buttonbox(
+                f"\n\n{player.name}, at which of your cards do you want to peek at first?", choices=["1", "2", "3", "4", "5"])
+            player.hand[int(peek_card) - 1].is_known_to_owner = True
+
+            peek_card = easygui.buttonbox(
+                f"\n\n{player.name}, at which of your cards do you want to peek at second?", choices=["1", "2", "3", "4", "5"])
+            player.hand[int(peek_card) - 1].is_known_to_owner = True
+
         while self.number_of_remaining_rounds > 0:
             self.number_of_remaining_rounds -= 1
             self.play_round()
