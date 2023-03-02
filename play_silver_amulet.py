@@ -17,12 +17,15 @@ class Card:
 
     def __init__(self, value):
         self.id = Card.generate_unique_id()
-        self.name = name
         self.value = value
-        self.ability = ability
+        self.name = ""
+        self.ability = ""
+        self.type_ability = None
         self.ability_used = False
         self.is_faceup = False
         self.is_known_to_owner = False
+
+        self.initialize_card()
 
         self.__class__.instances.append(self)
 
@@ -49,21 +52,27 @@ class Card:
         match self.value:
             case 0:
                 self.name = "0 Villager"
+                self.type_ability = "faceup"
                 self.ability = "When faceup: If any other 0 is faceup in any village, the round ends instantly."
             case 1:
                 self.name = "1 Squire"
+                self.type_ability = "faceup"
                 self.ability = "When faceup: display 1 card faceup from the deck."
             case 2:
                 self.name = "2 Empath"
+                self.type_ability = "faceup"
                 self.ability = "When faceup: view 1 of your facedown cards on your turn."
             case 3:
                 self.name = "3 Bodyguard"
+                self.type_ability = "faceup"
                 self.ability = "When faceup: protect this and 1 other card from opponents."
             case 4:
                 self.name = "4 Rascal"
+                self.type_ability = "faceup"
                 self.ability = "When faceup: draw 1 extra card from the deck."
             case 5:
                 self.name = "5 Exposer"
+                self.type_ability = ""
                 self.ability = "Turn 1 of your cards faceup."
             case 6:
                 self.name = "6 Revealer"
@@ -140,6 +149,7 @@ class SilverAmulet:
         self.players = []
         self.discard_pile = []
         self.draw_pile = []
+        self.open_draw_pile = []
         self.number_of_remaining_rounds = 4
         self.vote_is_called = False
 
@@ -173,11 +183,11 @@ class SilverAmulet:
     def generate_deck(self):
         # generate 2 cards each with value 0 and 13, and 4 cards each for values 1-12
         for i in range(2):
-            self.draw_pile.append(Card("0", 0, None))
-            self.draw_pile.append(Card("13", 13, None))
+            self.draw_pile.append(Card(0))
+            self.draw_pile.append(Card(13))
         for i in range(4):
             for j in range(1, 13):
-                self.draw_pile.append(Card(str(j), j, None))
+                self.draw_pile.append(Card(j))
 
         random.shuffle(self.draw_pile)
 
@@ -185,12 +195,17 @@ class SilverAmulet:
         # create two players
         self.players.append(Player("Maren"))
         self.players.append(Player("Kolja"))
+        print(f"The following players are playing: {self.players}")
+
         # give each player 5 random cards
         for i in range(5):
             for player in self.players:
                 self.give_card(player)
 
-        print(f"The following players are playing: {self.players}")
+        # move one card from the draw pile to the discard pile
+        self.discard_pile.append(self.draw_pile[0])
+        self.draw_pile.remove(self.draw_pile[0])
+
 
     def give_card(self, player):
         # take first card from draw pile and give it to player
@@ -226,14 +241,34 @@ class SilverAmulet:
             f"\n\n{player.name}, what do you want to do? \n{state}", choices=choices)
         print(f"{player.name} chose {type_of_move}")
 
+        if type_of_move == "Take a card from the deck":
+            drawn_card = self.draw_pile[0]
+            self.draw_pile.remove(drawn_card)
+            message = f"{state}\nYou drew: [ {drawn_card} ]\nWhat do you want to do with it?"
+            choices = ["Exchange with hand cards", "Discard it"]
+            action = easygui.buttonbox(message, choices=choices)
+            if action == "Exchange with hand cards":
+                print(f"Player {player.name} chose to exchange {drawn_card} with hand cards.")
+            else:
+                print(f"Player {player.name} chose to discard {drawn_card}.")
+                self.discard_pile.append(drawn_card)
+                
+        if type_of_move == "Take a card from the discard pile":
+            drawn_card = self.discard_pile[0]
+            # self.discard_pile.remove(drawn_card)
+            # message = f"{state}\nYou drew: [ {drawn_card} ]\nWhat do you want to exchange it with it?"
+            print(f"Player {player.name} chose to exchange {drawn_card} with hand cards.")
+        
+        if type_of_move == "Call a vote":
+            self.vote_is_called = True
+            print(f"Player {player.name} called a vote.")
+
     def play_round(self):
         for player in self.players:
             self.play_turn(player)
 
-    def play(self):
-        # allow each player in turn to peek at two cards on his hand
-        for player in self.players:
-            # create easygui to choose which of the two cards of the five hand cards to turn faceup
+    def peek_at_hand_cards(self, player):
+        # create easygui to choose which of the two cards of the five hand cards to turn faceup
             peek_card = easygui.buttonbox(
                 f"\n\n{player.name}, at which of your cards do you want to peek at first?", choices=["1", "2", "3", "4", "5"])
             player.hand[int(peek_card) - 1].is_known_to_owner = True
@@ -242,6 +277,12 @@ class SilverAmulet:
                 f"\n\n{player.name}, at which of your cards do you want to peek at second?", choices=["1", "2", "3", "4", "5"])
             player.hand[int(peek_card) - 1].is_known_to_owner = True
 
+    def play(self):
+        # allow each player in turn to peek at two cards on his hand
+        for player in self.players:
+            self.peek_at_hand_cards(player)
+
+        # the actual rounds of game play
         while self.number_of_remaining_rounds > 0:
             self.number_of_remaining_rounds -= 1
             self.play_round()
