@@ -276,6 +276,7 @@ class SilverAmulet:
             choice.make_choice()
             peek_card = choice.answer
             player.hand[int(peek_card) - 1].is_known_to_owner = True
+            player.hand[int(peek_card) - 1].show_card_to_player()
 
     def play(self):
         # allow each player in turn to peek at two cards on his hand
@@ -317,7 +318,7 @@ class SilverAmulet:
         chosen_card_index = choice.make_choice()
         chosen_card = any_player.hand[int(chosen_card_index)-1]
         print(f"{player.name} chose {chosen_card.name}")
-        return chosen_card
+        return chosen_card, chosen_card_index-1
     
     def choose_a_player(self, player, message, is_player_included=True):
         if is_player_included:
@@ -346,12 +347,7 @@ class SilverAmulet:
                 break
         return chosen_player_object
 
-    def exchange_any_players_card(self, player, any_player, card_to_exchange, card_to_exchange_with):
-        card_to_exchange_idx = None
-        for card, card_idx in enumerate(any_player.hand):
-            if card == card_to_exchange:
-                card_to_exchange_idx = card_idx
-                break
+    def exchange_any_players_card(self, player, any_player, card_to_exchange_idx, card_to_exchange_with):
         any_player.hand[card_to_exchange_idx] = card_to_exchange_with 
         print(f"{player.name} chose {card_to_exchange} with {card_to_exchange_with}")
 
@@ -374,7 +370,7 @@ class SilverAmulet:
                 # When faceup: protect this and 1 other card from opponents
                 choices = [str(x+1) for x in [*range(len(player.hand))]]
                 message = "which card do you want to protect?"
-                card_to_protect = self.choose_any_players_card(player, player, message)
+                card_to_protect, _ = self.choose_any_players_card(player, player, message)
                 card_to_protect.is_protected = True
             case 4:
                 # When faceup: draw 1 extra card from the deck
@@ -382,15 +378,15 @@ class SilverAmulet:
             case 5:
                 # Turn 1 of your cards faceup
                 message = "which of your cards do you want to turn?"
-                card_to_flip_idx = self.choose_any_players_card(player, player, message)
-                self.turn_card_faceup(card_to_flip_idx, player)
+                card_to_flip, _ = self.choose_any_players_card(player, player, message)
+                self.turn_card_faceup(card_to_flip, player)
             case 6:
                 # Turn any 1 card faceup
                 message = "whose card do you want to turn?"
                 chosen_player = self.choose_a_player(player, message)
                 
                 message = "which of their cards do you want to turn?"
-                card_to_flip = self.choose_any_players_card(player, chosen_player, message)
+                card_to_flip, _ = self.choose_any_players_card(player, chosen_player, message)
                 self.turn_card_faceup(card_to_flip, player)
             case 7:
                 # View up to 2 of your cards
@@ -401,7 +397,7 @@ class SilverAmulet:
                 chosen_player = self.choose_a_player(self, player, message, is_player_included=False)
                 
                 message = "which of their cards do you want to turn?"
-                card_to_flip = self.choose_any_players_card(player, message)
+                card_to_flip, _ = self.choose_any_players_card(player, message)
                 self.turn_card_faceup(card_to_flip, player)
             case 9:
                 # View any 1 card
@@ -451,32 +447,30 @@ class SilverAmulet:
                 chosen_player = self.choose_a_player(player, is_player_included=False)
 
                 message = "which of their cards do you want to exchange?"
-                card_to_exchange = self.choose_any_players_card(player, chosen_player, message)
+                card_to_exchange, card_to_exchange_idx = self.choose_any_players_card(player, chosen_player, message)
                 self.turn_card_faceup(card_to_exchange, player)
                 
                 self.discard_pile.append(card_to_exchange)
 
-                self.exchange_any_players_card(self, player, chosen_player, card_to_exchange, drawn_card)
+                self.exchange_any_players_card(self, player, chosen_player, card_to_exchange_idx, drawn_card)
 
             case 12:
                 # Steal 1 opponent's card and give them 1 of your cards. View your new card.
                 message = "which of your cards do you want to exchange?"
-                your_card_to_exchange = self.choose_any_players_card(player, chosen_player, message)
+                your_card_to_exchange, your_card_to_exchange_idx = self.choose_any_players_card(player, chosen_player, message)
 
                 message = "whose card do you want to turn?"
                 chosen_player = self.choose_a_player(player, message)
 
                 message = "which of their cards do you want to steal?"
-                card_to_steal = self.choose_any_players_card(player, chosen_player, message)
+                card_to_steal, card_to_steal_idx = self.choose_any_players_card(player, chosen_player, message)
 
-                self.exchange_any_players_card(player, chosen_player, card_to_steal, your_card_to_exchange)
+                self.exchange_any_players_card(player, chosen_player, card_to_steal_idx, your_card_to_exchange)
                 
-
-                tmp_chosen_players_card = chosen_player_object.hand[card_to_steal-1]
-                chosen_player_object.hand[card_to_steal-1] = player.hand[your_card_to_exchange-1]
-                player.hand[your_card_to_exchange-1] = tmp_chosen_players_card
-
-                player.peek_at_hand_cards(self, player, 1) #?
+                chosen_player_object.hand[card_to_steal-1] = your_card_to_exchange
+                player.hand[your_card_to_exchange_idx-1] = card_to_steal
+                player.hand[your_card_to_exchange_idx-1].show_card_to_player()
+                
 
                 
             case 13:
