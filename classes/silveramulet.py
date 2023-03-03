@@ -88,7 +88,7 @@ class SilverAmulet:
         card.owner = player
 
     def exchange_card_with_hand_cards(self, player, received_card):
-        message = f"{self.get_state_string(player)}\{player}, you are about to receive: [ {received_card} ]\nWhat do you want to exchange it with it?"
+        message = f"{self.get_state_string(player)}\{player}, you are about to receive: [ {received_card} ]\nWhat do you want to exchange it with?"
         choices = []
         print("choices: ", choices)
         for card in player.hand:
@@ -234,17 +234,23 @@ class SilverAmulet:
     def peek_at_hand_cards(self, player, n):
         # create easygui to choose which of the two cards of the five hand cards to turn faceup
         for _ in range(n):
-            choices = [str(x+1) for x in [*range(len(player.hand))]]
-            print("choices: ", choices)
-            peek_card = easygui.buttonbox(
-                f"\n\n{player.name}, which card do you want to peek at?", choices = choices)
+            possible_answers = [str(x+1) for x in [*range(len(player.hand))]]
+            choice = Choice(
+                self,
+                player,
+                "peek-at-own-card",
+                "which card do you want to peek at?",
+                possible_answers,
+                True
+            )
+            choice.make_choice()
+            peek_card = choice.answer
             player.hand[int(peek_card) - 1].is_known_to_owner = True
 
     def play(self):
         # allow each player in turn to peek at two cards on his hand
-        # TODO: uncomment this after testing
-        # for player in self.players:
-        #     self.peek_at_hand_cards(player, 2)
+        for player in self.players:
+            self.peek_at_hand_cards(player, 2)
 
         # the actual rounds of game play
         while self.number_of_remaining_rounds > 0:
@@ -258,7 +264,8 @@ class SilverAmulet:
         self.open_draw_pile.append(card)
         self.draw_pile.remove(card)
 
-    def turn_card_faceup(self, card, player):
+    def turn_card_faceup(self, card_idx, player):
+        card = player.hand[card_idx]
         card.is_faceup = True
         if card.type_ability == "faceup":
             self.execute_ability(card, player)
@@ -268,12 +275,36 @@ class SilverAmulet:
             self.undo_faceup_ability(card, player)
         card.is_faceup = False
 
-    def choose_players_card(self, player, message):
-        choices = [str(x+1) for x in [*range(len(player.hand))]]
-        chosen_card = easygui.buttonbox(
-            f"\n\n{player.name}, {message}" , choices=choices)
-        print(f"{player.name} chose {chosen_card}")
-        return chosen_card
+    def choose_any_players_card(self, any_player, message):
+        choices = [str(x+1) for x in [*range(len(any_player.hand))]]
+        print("choices: ", choices)
+        chosen_card_index = easygui.buttonbox(
+            f"\n\n{any_player.name}, {message}" , choices=choices)
+        print(f"{any_player.name} chose {chosen_card}")
+        return chosen_card_index-1
+    
+    def choose_a_player(self, player, message, isPlayerIncluded=True):
+        if isPlayerIncluded:
+            choices = [any_player.name for any_player in self.players]
+        else:
+            other_players = []
+            for game_player in self.players:
+                if game_player != player:
+                    other_players.append(game_player)               
+            choices = [player.name for player in other_players]
+            
+        print("choices: ", choices)
+        chosen_player = easygui.buttonbox(
+            f"\n\n{player.name}, {message}", choices=choices)
+        print(f"{player.name} chose {chosen_player}")
+        
+        # find player object by name
+        chosen_player_object = None 
+        for game_player in self.players:
+            if game_player.name == chosen_player:
+                chosen_player_object = game_player
+                break
+        return chosen_player_object
 
     def execute_ability(self, card, player):
         # perform ability depending on value of card
@@ -293,21 +324,17 @@ class SilverAmulet:
             case 3:
                 # When faceup: protect this and 1 other card from opponents
                 choices = [str(x+1) for x in [*range(len(player.hand))]]
-                print("choices: ", choices)
-                protect_card = easygui.buttonbox(
-                    f"\n\n{player.name}, which card do you want to protect?", choices = choices)
-                player.hand[int(protect_card) - 1].is_protected = True
+                message = "which card do you want to protect?"
+                protect_card_idx = self.choose_any_players_card(player, message)
+                player.hand[int(protect_card_idx)].is_protected = True
             case 4:
                 # When faceup: draw 1 extra card from the deck
                 player.number_of_draws += 1
             case 5:
                 # Turn 1 of your cards faceup
-                choices = [str(x+1) for x in [*range(len(player.hand))]]
-                print("choices: ", choices)
-                card_to_flip = easygui.buttonbox(
-                    f"\n\n{player.name}, which of your cards do you want to turn?", choices=choices)
-                print(f"{player.name} chose {card_to_flip}")
-                self.turn_card_faceup(player.hand[int(card_to_flip)], player)
+                message = "which of your cards do you want to turn?"
+                card_to_flip_idx = self.choose_any_players_card(player, message)
+                self.turn_card_faceup(card_to_flip_idx, player)
             case 6:
                 # Turn any 1 card faceup
                 choices = [player.name for player in self.players]
@@ -324,8 +351,8 @@ class SilverAmulet:
                         break
                 
                 message = "which of their cards do you want to turn?"
-                card_to_flip = self.choose_players_card(player, message)
-                self.turn_card_faceup(chosen_player_object.hand[int(card_to_flip)], chosen_player_object)
+                card_to_flip = self.choose_any_players_card(chosen_player_object, message)
+                self.turn_card_faceup(card_to_flip, chosen_player_object)
             case 7:
                 # View up to 2 of your cards
                 self.peek_at_hand_cards(player, 2)
@@ -347,12 +374,10 @@ class SilverAmulet:
                     if game_player.name == chosen_player:
                         chosen_player_object = game_player
                         break
-
-                choices = [str(x+1) for x in [*range(len(chosen_player_object.hand))]]
-                card_to_flip = easygui.buttonbox(
-                    f"\n\n{player.name}, which of their cards do you want to turn?", choices=choices)
-                print(f"{player.name} chose {card_to_flip}")
-                self.turn_card_faceup(chosen_player_object.hand[int(card_to_flip)])
+                
+                message = "which of their cards do you want to turn?"
+                card_to_flip_idx = self.choose_any_players_card(player, message)
+                self.turn_card_faceup(card_to_flip_idx)
             case 9:
                 # View any 1 card
                 choices = [str(x+1) for x in [*range(len(self.players))]]
@@ -395,7 +420,7 @@ class SilverAmulet:
                 card_to_flip = easygui.buttonbox(
                     f"\n\n{player.name}, which of your cards do you want to turn?", choices=choices)
                 print(f"{player.name} chose {card_to_flip}")
-                self.turn_card_faceup(player.hand[int(card_to_flip)], player)
+                self.turn_card_faceup(card_to_flip, player)
 
                 # find player object by name
                 chosen_player_object = None 
