@@ -10,3 +10,4 @@ import classes.silveramulet as c
 if __name__ == "__main__":
     # start the game
     game = c.SilverAmulet()
+    game.run_game()
