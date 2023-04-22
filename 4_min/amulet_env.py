@@ -1,18 +1,23 @@
 import gymnasium as gym
 import gymnasium.spaces as spaces
 import random
+import numpy as np
 
 class CardGameEnv(gym.Env):
     def __init__(self):
         super(CardGameEnv, self).__init__()
 
         # Define action and observation spaces
+        # use only Box, Discrete, MultiBinary or MultiDiscrete spaces
+    #    replace dict config:
         self.action_space = spaces.Tuple((spaces.Discrete(2), spaces.Discrete(5)))
         self.observation_space = spaces.Dict({
             'player_hands': spaces.MultiDiscrete([13] * 4 * 5),
             'pile_top_card': spaces.Discrete(13),
             'current_player': spaces.Discrete(4),
         })
+
+        # self.action_space = gym.spaces.Discrete(7)
 
         # Initialize game state
         self.reset()
