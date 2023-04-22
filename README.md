@@ -8,7 +8,7 @@ pip install -r requirements.txt
 
 ## Structure
 
-* `0` - the original project, OOJ Silver Amulet w/ lots of bugs and no AI
+* `0` - the original project, OOP Silver Amulet w/ lots of bugs and no AI
 * `1` - some tests on how functional even works in python
 * `2` - testing the `SIMPLE` library
 

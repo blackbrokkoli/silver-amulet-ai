@@ -21,6 +21,7 @@ class Choice:
     def make_choice(self):
         if self.show_in_GUI:
             if self.is_single_choice:
+                print("Possible answers: ", self.possible_answers)
                 self.answer = easygui.choicebox(
                     self.message, self.choice_type, self.possible_answers)
             else:

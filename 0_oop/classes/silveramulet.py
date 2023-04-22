@@ -193,33 +193,39 @@ class SilverAmulet:
                 card = card_tuple[0]
                 possible_answers.append(card.show_card_with_id())
            
-            choice = Choice(
-                self,
-                player,
-                "pick-card",
-                "which card do you want to take?",
-                possible_answers
-            )
-            chosen_card = choice.make_choice()
-            # find card object by its id
-            card_id = chosen_card.split(":")[0]
-            card_object = None
-            for card_tuple in temporary_cards:
-                card = card_tuple[0]
-                if card.id == card_id:
-                    card_object = card
-                    temporary_cards.remove(card_tuple)
-                    break
+            if len(temporary_cards) > 1:
+                choice = Choice(
+                    self,
+                    player,
+                    "pick-card",
+                    "which card do you want to take?",
+                    possible_answers
+                )
+                chosen_card = choice.make_choice()
+                # find card object by its id
+                card_id = chosen_card.split(":")[0]
+                card_object = None
+                for card_tuple in temporary_cards:
+                    card = card_tuple[0]
+                    if card.id == card_id:
+                        card_object = card
+                        temporary_cards.remove(card_tuple)
+                        break
 
-            # put the other cards back in the same place in the same order
-            for card_tuple in reversed(temporary_cards):
-                card = card_tuple[0]
-                if card_tuple[1]:
-                    self.draw_pile.insert(0, card)
-                else:
-                    self.open_draw_pile.insert(0, card)
+                # put the other cards back in the same place in the same order
+                for card_tuple in reversed(temporary_cards):
+                    card = card_tuple[0]
+                    if card_tuple[1]:
+                        self.draw_pile.insert(0, card)
+                    else:
+                        self.open_draw_pile.insert(0, card)
+
+                # add the chosen card to the player's hand
+                drawn_card = card_object
+
+            else:
+                drawn_card = possible_answers[0]
                 
-            drawn_card = card_object
             
             possible_answers = ["Exchange with hand cards", "Discard it"]
             # if the type_ability of the card is "drawn", add "Use it and discard"
@@ -276,7 +282,7 @@ class SilverAmulet:
             choice.make_choice()
             peek_card = choice.answer
             player.hand[int(peek_card) - 1].is_known_to_owner = True
-            player.hand[int(peek_card) - 1].show_card_to_player()
+            player.hand[int(peek_card) - 1].show_card_to_player(player)
 
     def play(self):
         # allow each player in turn to peek at two cards on his hand
@@ -360,7 +366,7 @@ class SilverAmulet:
             case 1:
                 # When faceup: display 1 card faceup from the deck
                 self.number_of_open_ones += 1
-                if len(self.draw_pile) < self.number_of_open_zeros:
+                if len(self.open_draw_pile) < self.number_of_open_zeros:
                     self.add_card_to_open_draw_pile()
             case 2:
                 # When faceup: view 1 of your facedown cards on your turn
