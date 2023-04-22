@@ -35,6 +35,7 @@ class CardGameEnv(gym.Env):
         # Take an action (keep or discard the card) and update the game state accordingly
         player = self.state['current_player']
         keep_card, discard_index = action
+        prev_hand_card_sum = sum(self.state['player_hands'][player])
 
         if keep_card:  # Keep
             self.state['player_hands'][player][discard_index] = self.state['pile_top_card']
@@ -47,16 +48,20 @@ class CardGameEnv(gym.Env):
 
         self.state['current_player'] = (player + 1) % 4
 
-        # Compute reward, done, and optional info
         if not self.deck:
             # Calculate scores
             scores = [sum(hand) for hand in self.state['player_hands']]
             winner = scores.index(min(scores))
-            reward = 1 if player == winner else -1
+            # reward = 1 if player == winner else -1
             done = True
         else:
-            reward = 0
+            # reward = 0
             done = False
+
+        # calculate sum of hand cards
+        current_hand_card_sum = sum(self.state['player_hands'][player])
+        reward =  prev_hand_card_sum - current_hand_card_sum
+        print("Player", player, "reward:", reward)
 
         info = {}  # Any additional information
 

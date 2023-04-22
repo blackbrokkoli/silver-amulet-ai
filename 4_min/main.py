@@ -27,7 +27,7 @@ def main():
 
         _, reward, done, _ = env.step((action_keep, action_index))
 
-    print("Game Over")
+    print("Game Over. Reward: ", reward)
 
 if __name__ == "__main__":
     main()
